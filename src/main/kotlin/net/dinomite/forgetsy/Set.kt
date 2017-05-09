@@ -6,12 +6,12 @@ import java.time.Duration
 import java.time.Instant
 
 /**
- * @param jedisPool A <a href="https://github.com/xetorthio/jedis">Jedis</a> pool instance
- * @param name      This delta's name
- * @param lifetime  Mean lifetime of an observation
- * @param [start]   Optional, time to begin the decay from
+ * @param jedisPool     A <a href="https://github.com/xetorthio/jedis">Jedis</a> pool instance
+ * @param name          This delta's name
+ * @param [lifetime]    Optional if set exists in Redis, mean lifetime of an observation
+ * @param [start]       Optional, time to begin the decay from
  */
-open class Set(val jedisPool: JedisPool, val name: String, val lifetime: Duration, val start: Instant = Instant.now()) {
+open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? = null, start: Instant? = null) {
     companion object {
         val LAST_DECAYED_KEY = "_last_decay"
         val LIFETIME_KEY = "_t"
@@ -21,10 +21,28 @@ open class Set(val jedisPool: JedisPool, val name: String, val lifetime: Duratio
         val HI_PASS_FILTER = "0.0001"
     }
 
+    val lifetime: Duration
+    val start: Instant
+
     init {
-        // TODO handle fetching an existing one; auto-detect by key existence?
-        updateDecayDate(start)
-        jedisPool.resource.use { it.zadd(name, lifetime.toDouble(), LIFETIME_KEY) }
+        if (lifetime == null && start == null) {
+            // Attempt to lookup values
+            try {
+                this.lifetime = fetchLifetime()
+                this.start = fetchLastDecayedDate()
+            } catch (e: NullPointerException) {
+                throw IllegalArgumentException("Set doesn't exist (pass lifetime to create it)")
+            }
+        } else if (lifetime != null) {
+            // Create a new Set
+            this.lifetime = lifetime
+            this.start = start ?: Instant.now()
+
+            updateDecayDate(this.start)
+            jedisPool.resource.use { it.zadd(name, this.lifetime.toDouble(), LIFETIME_KEY) }
+        } else {
+            throw IllegalStateException("Must provide lifetime for new Set")
+        }
     }
 
     fun fetch(num: Int = -1, decay: Boolean = true, scrub: Boolean = true, bin: String? = null): Map<String, Double> {

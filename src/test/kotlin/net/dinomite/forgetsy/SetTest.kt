@@ -51,6 +51,27 @@ class SetTest {
         assertWithin(start, set.fetchLastDecayedDate())
     }
 
+    @Test
+    fun create_reifiesExisting() {
+        val sameSet = Set(jedisPool, name)
+
+        val lifetime = set.fetchLifetime()
+        val decayDate = set.fetchLastDecayedDate()
+        assertEquals(lifetime, sameSet.fetchLifetime())
+        assertEquals(decayDate, sameSet.fetchLastDecayedDate())
+    }
+
+    @Test
+    fun create_failsForNonexistant() {
+        try {
+            Set(jedisPool, "does-not-exist")
+            fail()
+        } catch (e: IllegalArgumentException) {
+            assertEquals("Set doesn't exist (pass lifetime to create it)", e.message)
+        }
+
+    }
+
 
     @Test
     fun increment() {
@@ -131,7 +152,6 @@ class SetTest {
         val set = Set(jedisPool, "decay_test", lifetime, start)
 
         set.increment(binName)
-        val foo = set.fetch()
 
         assertEquals(0, set.fetch().values.size)
     }
