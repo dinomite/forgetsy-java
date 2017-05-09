@@ -90,7 +90,7 @@ class SetTest {
         set.increment(binName, date = Instant.now().minus(lifetime.plusDays(5)))
         jedisPool.resource.use {
             assertNull("Ignores date older than last decay date", it.zscore(name, binName))
-            assertNull("Fetch is null", set.fetch(bin = binName).values.first())
+            assertNull("Fetch is null", set.fetchBin(binName).values.first())
         }
     }
 
@@ -98,7 +98,7 @@ class SetTest {
     @Test
     fun fetch_byBinName() {
         set.incrementBy(binName, 2.0)
-        assertEquals(mapOf(binName to 2.0), set.fetch(bin = binName, decay = false))
+        assertEquals(mapOf(binName to 2.0), set.fetchBin(binName, decay = false))
     }
 
     @Test
@@ -141,8 +141,8 @@ class SetTest {
         val decayedBar = barValue * Math.exp(- rate * delta)
 
         set.decayData(now)
-        assertEquals(decayedFoo, set.fetch(bin = fooName).values.first(), .1)
-        assertEquals(decayedBar, set.fetch(bin = barName).values.first(), .1)
+        assertEquals(decayedFoo, set.fetchBin(fooName).values.first(), .1)
+        assertEquals(decayedBar, set.fetchBin(barName).values.first(), .1)
     }
 
     @Test
@@ -154,19 +154,5 @@ class SetTest {
         set.increment(binName)
 
         assertEquals(0, set.fetch().values.size)
-    }
-
-
-    private fun Int.days(): Duration {
-        return Duration.ofDays(this.toLong())
-    }
-
-    private fun Int.daysAgo(): Instant {
-        return Instant.now().minus(Duration.ofDays(this.toLong()))
-    }
-
-    private fun assertWithin(expected: Instant, actual: Instant, within: Duration = Duration.ofSeconds(1)) {
-        assertTrue("\n$expected is too far from\n$actual",
-                (expected.toEpochMilli() - actual.toEpochMilli()) < within.toMillis())
     }
 }

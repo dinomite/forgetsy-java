@@ -6,9 +6,14 @@ import java.time.Duration
 import java.time.Instant
 
 /**
+ * Ruby  | Java
+ * -------------
+ * date  | start
+ * t     | lifetime
+ *
  * @param jedisPool     A <a href="https://github.com/xetorthio/jedis">Jedis</a> pool instance
  * @param name          This delta's name
- * @param [lifetime]    Optional if set exists in Redis, mean lifetime of an observation
+ * @param [lifetime]    Optional if Set exists in Redis, mean lifetime of an observation
  * @param [start]       Optional, time to begin the decay from
  */
 open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? = null, start: Instant? = null) {
@@ -45,15 +50,18 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
         }
     }
 
-    fun fetch(num: Int = -1, decay: Boolean = true, scrub: Boolean = true, bin: String? = null): Map<String, Double> {
+    fun fetch(num: Int = -1, decay: Boolean = true, scrub: Boolean = true): Map<String, Double> {
         if (decay) decayData()
         if (scrub) scrubData()
 
-        if (bin != null) {
-            return mapOf(bin to jedisPool.resource.use { it.zscore(name, bin) })
-        } else {
-            return fetchRaw(num).associateBy({ it.element }, { it.score })
-        }
+        return fetchRaw(num).associateBy({ it.element }, { it.score })
+    }
+
+    fun fetchBin(bin: String, decay: Boolean = true, scrub: Boolean = true): Map<String, Double> {
+        if (decay) decayData()
+        if (scrub) scrubData()
+
+        return mapOf(bin to jedisPool.resource.use { it.zscore(name, bin) })
     }
 
     fun increment(bin: String, date: Instant = Instant.now()) {
