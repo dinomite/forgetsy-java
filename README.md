@@ -1,4 +1,4 @@
-# Forgetsy-java
+# forgetsy-jvm
 
 A JVM port of [Forgetsy](https://github.com/cavvia/forgetsy) in Kotlin.
 

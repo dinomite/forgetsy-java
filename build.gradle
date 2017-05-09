@@ -77,7 +77,7 @@ bintray {
     pkg {
         repo = 'maven'
         licenses = ['Apache-2.0']
-        vcsUrl = 'https://github.com/dinomite/forgetsy-java'
+        vcsUrl = 'https://github.com/dinomite/forgetsy-jvm'
         name = 'net.dinomite:forgetsy'
 
         version {
