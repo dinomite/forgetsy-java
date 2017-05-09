@@ -24,7 +24,11 @@ Outputs:
 
 ```{UserFoo=0.6666666666666666, UserBar=0.5}```
 
-# Kotlin
+# Ruby
+
+I wrote this as a straight port of [Forgetsy](https://github.com/cavvia/forgetsy), mirroring the API very closely and even much of the internals.  It should interop well (i.e. you should be ok using this and Forgetsy pointed at the same Redis) but I haven't tested that yet.
+
+# Kotlin (and Java)
 
 This library is written in Kotlin and I use it from Kotlin.  Kotlin has great Java interop…but this library makes use of
 named arguments which Java doesn't support and likely makes the API as viewed from Java pretty janky.  If you want to
