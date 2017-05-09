@@ -47,8 +47,8 @@ class DeltaTest {
         val sameDelta = Delta(jedisPool, name)
 
         jedisPool.resource.use {
-            assertEquals("Creates primary Set", 1, it.keys(delta.primarySet.name).size)
-            assertEquals("Creates secondary Set", 1, it.keys(delta.secondarySet.name).size)
+            assertEquals("Creates primary Set", 1, it.keys(sameDelta.primarySet.name).size)
+            assertEquals("Creates secondary Set", 1, it.keys(sameDelta.secondarySet.name).size)
             assertEquals(2, it.dbSize())
         }
     }

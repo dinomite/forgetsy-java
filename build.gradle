@@ -35,7 +35,6 @@ dependencies {
 
     testCompile 'junit:junit:4.12'
     testCompile 'com.orange.redis-embedded:embedded-redis:0.6'
-//    testCompile 'com.github.kstyrc:embedded-redis:0.6'
 }
 
 task sourceJar(type: Jar, dependsOn: classes) {
