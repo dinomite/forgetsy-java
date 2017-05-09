@@ -1,19 +1,9 @@
-A service to provide [Slack](https://slack.com/)-like [unfurling](https://medium.com/slack-developer-blog/everything-you-ever-wanted-to-know-about-unfurling-but-were-afraid-to-ask-or-how-to-make-your-e64b4bb9254).
+# Forgetsy-java
 
-Add it to your `build.gradle`:
+A JVM port of [Forgetsy](https://github.com/cavvia/forgetsy) in Kotlin.
 
-    compile 'net.dinomite.web:unfurling:1.0.2'
+# Kotlin
 
-Use it by creating an `UnfurlingService` and asking it to `unfurl()` a `URI`:
-
-    val unfurlingService = UnfurlingService(HttpClients.createDefault())
-    val unfurled = unfurlingService.unfurl(URI("https://twitter.com/dinomite"))
-    println(unfurled.url) // https://twitter.com/dinomite
-    println(unfurled.title) // Rev. Drew Stephens
-    println(unfurled.image.url) // https://pbs.twimg.com/profile_images/1144814297/Drew_955x955.jpg
-    println(unfurled.description) // Grand High Figurehead, Church of Empirical Evidence
-
-# Logging
-
-This module uses the Mapped Diagnostic Context (MDC) key "mdc" to provide the URI for which failures occur.  Add
-`%X{mdc}` to your logging pattern to see this information.
+This library is written in Kotlin and for use from Kotlin.  Kotlin has great Java interop…but this library makes use of
+named arguments which Java doesn't support and likely makes the API as viewed from Java pretty janky.  If you want to
+use this from Java provide a PR or just let me know and we can work on it together.

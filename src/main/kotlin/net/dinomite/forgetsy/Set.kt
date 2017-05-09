@@ -1,0 +1,104 @@
+package net.dinomite.forgetsy
+
+import redis.clients.jedis.JedisPool
+import redis.clients.jedis.Tuple
+import java.time.Duration
+import java.time.Instant
+
+/**
+ * @param jedisPool A <a href="https://github.com/xetorthio/jedis">Jedis</a> pool instance
+ * @param name      This delta's name
+ * @param lifetime  Mean lifetime of an observation
+ * @param [start]   Optional, time to begin the decay from
+ */
+open class Set(val jedisPool: JedisPool, val name: String, val lifetime: Duration, val start: Instant = Instant.now()) {
+    companion object {
+        val LAST_DECAYED_KEY = "_last_decay"
+        val LIFETIME_KEY = "_t"
+        val SPECIAL_KEYS = listOf(LAST_DECAYED_KEY, LIFETIME_KEY)
+
+        // Scrub keys scoring lower than this
+        val HI_PASS_FILTER = "0.0001"
+    }
+
+    init {
+        // TODO handle fetching an existing one; auto-detect by key existence?
+        updateDecayDate(start)
+        jedisPool.resource.use { it.zadd(name, lifetime.toDouble(), LIFETIME_KEY) }
+    }
+
+    fun fetch(num: Int = -1, decay: Boolean = true, scrub: Boolean = true, bin: String? = null): Map<String, Double> {
+        if (decay) decayData()
+        if (scrub) scrubData()
+
+        if (bin != null) {
+            return mapOf(bin to jedisPool.resource.use { it.zscore(name, bin) })
+        } else {
+            return fetchRaw(num).associateBy({ it.element }, { it.score })
+        }
+    }
+
+    fun increment(bin: String, date: Instant = Instant.now()) {
+        if (validIncrementDate(date)) {
+            jedisPool.resource.use { it.zincrby(name, 1.toDouble(), bin) }
+        }
+    }
+
+    fun incrementBy(bin: String, amount: Double, date: Instant = Instant.now()) {
+        if (validIncrementDate(date)) {
+            jedisPool.resource.use { it.zincrby(name, amount, bin) }
+        }
+    }
+
+    /**
+     * Apply exponential decay and update last decay time
+     */
+    internal fun decayData(date: Instant = Instant.now()) {
+        val t0 = fetchLastDecayedDate().toTimestamp()
+        val t1 = date.toTimestamp()
+        val deltaT = t1 - t0
+
+        val set = fetchRaw()
+        val rate = 1 / fetchLifetime().toDouble()
+
+        jedisPool.resource.pipelined().use { p ->
+            set.forEach {
+                val newValue = it.score * Math.exp(-deltaT * rate)
+                p.zadd(name, newValue, it.element)
+            }
+
+            updateDecayDate(Instant.now())
+            p.sync()
+        }
+    }
+
+    /**
+     * Scrub entries below threshold
+     */
+    internal fun scrubData() {
+        jedisPool.resource.use { it.zremrangeByScore(name, "-inf", HI_PASS_FILTER) }
+    }
+
+    internal fun fetchLastDecayedDate(): Instant {
+        return Instant.ofEpochSecond(jedisPool.resource.use { it.zscore(name, LAST_DECAYED_KEY) }.toLong())
+    }
+
+    internal fun fetchLifetime(): Duration {
+        return Duration.ofSeconds(jedisPool.resource.use { it.zscore(name, LIFETIME_KEY) }.toLong())
+    }
+
+    internal fun fetchRaw(limit: Int = -1): List<Tuple> {
+        val bufferedLimit = if (limit > 0) limit + SPECIAL_KEYS.size else limit
+
+        val set = jedisPool.resource.use { it.zrevrangeWithScores(name, 0, bufferedLimit.toLong()) }
+        return set.filter { !SPECIAL_KEYS.contains(it.element) }
+    }
+
+    internal fun updateDecayDate(date: Instant) {
+        jedisPool.resource.use { it.zadd(name, date.toTimestamp(), LAST_DECAYED_KEY) }
+    }
+
+    internal fun validIncrementDate(date: Instant): Boolean {
+        return date > fetchLastDecayedDate()
+    }
+}

@@ -29,14 +29,14 @@ repositories {
 }
 
 dependencies {
-    api "org.apache.httpcomponents:httpclient:4.5.2"
-    implementation "com.google.guava:guava:20.0"
-    implementation "org.jsoup:jsoup:1.8.3"
+    api "redis.clients:jedis:2.9.0"
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     implementation "org.slf4j:slf4j-simple:1.7.18"
+//    implementation "com.google.guava:guava:20.0"
 
     testCompile "junit:junit:4.12"
-    testCompile "com.github.tomakehurst:wiremock:1.58"
+    testCompile 'com.orange.redis-embedded:embedded-redis:0.6'
+//    testCompile 'com.github.kstyrc:embedded-redis:0.6'
 }
 
 task sourceJar(type: Jar, dependsOn: classes) {
