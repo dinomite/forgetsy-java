@@ -57,7 +57,7 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
         return fetchRaw(num).associateBy({ it.element }, { it.score })
     }
 
-    fun fetchBin(bin: String, decay: Boolean = true, scrub: Boolean = true): Map<String, Double> {
+    fun fetch(bin: String, decay: Boolean = true, scrub: Boolean = true): Map<String, Double> {
         if (decay) decayData()
         if (scrub) scrubData()
 

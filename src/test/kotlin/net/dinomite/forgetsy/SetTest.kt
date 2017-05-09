@@ -90,7 +90,7 @@ class SetTest {
         set.increment(binName, date = Instant.now().minus(lifetime.plusDays(5)))
         jedisPool.resource.use {
             assertNull("Ignores date older than last decay date", it.zscore(name, binName))
-            assertNull("Fetch is null", set.fetchBin(binName).values.first())
+            assertNull("Fetch is null", set.fetch(binName).values.first())
         }
     }
 
@@ -98,7 +98,7 @@ class SetTest {
     @Test
     fun fetch_byBinName() {
         set.incrementBy(binName, 2.0)
-        assertEquals(mapOf(binName to 2.0), set.fetchBin(binName, decay = false))
+        assertEquals(mapOf(binName to 2.0), set.fetch(binName, decay = false))
     }
 
     @Test
@@ -141,8 +141,8 @@ class SetTest {
         val decayedBar = barValue * Math.exp(- rate * delta)
 
         set.decayData(now)
-        assertEquals(decayedFoo, set.fetchBin(fooName).values.first(), .1)
-        assertEquals(decayedBar, set.fetchBin(barName).values.first(), .1)
+        assertEquals(decayedFoo, set.fetch(fooName).values.first(), .1)
+        assertEquals(decayedBar, set.fetch(barName).values.first(), .1)
     }
 
     @Test
