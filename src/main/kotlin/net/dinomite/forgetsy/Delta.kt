@@ -15,7 +15,7 @@ import java.time.Instant
  * @param lifetime  Optional if Delta already exists in Redis, mean lifetime of observation
  * @param [start]   Optional, an instant to start replaying from
  */
-open class Delta(val jedisPool: JedisPool, name: String, lifetime: Duration? = null, replay: Boolean = false, start: Instant = Instant.now()) {
+open class Delta(val jedisPool: JedisPool, name: String, lifetime: Duration? = null, start: Instant? = null) {
     companion object {
         val NORMAL_TIME_MULTIPLIER = 2
     }
@@ -38,7 +38,7 @@ open class Delta(val jedisPool: JedisPool, name: String, lifetime: Duration? = n
             }
         } else {
             val now = Instant.now()
-            val startTime = if (replay) now.minus(lifetime) else start
+            val startTime = start ?: now.minus(lifetime)
 
             primarySet = Set(jedisPool, primaryKey, lifetime, startTime)
 

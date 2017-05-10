@@ -65,7 +65,7 @@ class DeltaTest {
 
     @Test
     fun create_retrospective() {
-        val retrospective = Delta(jedisPool, name, 7.days(), true)
+        val retrospective = Delta(jedisPool, name, 7.days())
 
         val secondaryDecayDate = retrospective.secondarySet.fetchLastDecayedDate()
         val primaryDecayDate = retrospective.primarySet.fetchLastDecayedDate()
