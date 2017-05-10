@@ -36,7 +36,7 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
                 this.lifetime = fetchLifetime()
                 this.start = fetchLastDecayedDate()
             } catch (e: NullPointerException) {
-                throw IllegalArgumentException("Set doesn't exist (pass lifetime to create it)")
+                throw IllegalStateException("Set doesn't exist (pass lifetime to create it)")
             }
         } else if (lifetime != null) {
             // Create a new Set
@@ -46,7 +46,7 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
             updateDecayDate(this.start)
             jedisPool.resource.use { it.zadd(name, this.lifetime.toDouble(), LIFETIME_KEY) }
         } else {
-            throw IllegalStateException("Must provide lifetime for new Set")
+            throw IllegalArgumentException("Must provide lifetime for new Set")
         }
     }
 

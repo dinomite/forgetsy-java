@@ -58,7 +58,7 @@ class DeltaTest {
         try {
             Delta(jedisPool, "does-not-exist")
             fail()
-        } catch (e: IllegalArgumentException) {
+        } catch (e: IllegalStateException) {
             assertEquals("Delta doesn't exist (pass lifetime to create it)", e.message)
         }
     }

@@ -66,7 +66,7 @@ class SetTest {
         try {
             Set(jedisPool, "does-not-exist")
             fail()
-        } catch (e: IllegalArgumentException) {
+        } catch (e: IllegalStateException) {
             assertEquals("Set doesn't exist (pass lifetime to create it)", e.message)
         }
 

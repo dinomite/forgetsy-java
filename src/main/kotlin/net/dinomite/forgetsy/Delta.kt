@@ -33,8 +33,8 @@ open class Delta(val jedisPool: JedisPool, name: String, lifetime: Duration? = n
             try {
                 primarySet = Set(jedisPool, primaryKey)
                 secondarySet = Set(jedisPool, secondaryKey)
-            } catch (e: IllegalArgumentException) {
-                throw IllegalArgumentException("Delta doesn't exist (pass lifetime to create it)")
+            } catch (e: IllegalStateException) {
+                throw IllegalStateException("Delta doesn't exist (pass lifetime to create it)")
             }
         } else {
             val now = Instant.now()
