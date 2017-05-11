@@ -24,6 +24,80 @@ Outputs:
 
 ```{UserFoo=0.6666666666666666, UserBar=0.5}```
 
+# Usage
+
+forgetsy-jvm is distributed included in [jcenter](https://bintray.com/bintray/jcenter).  If you're using Gradle, add
+`jcenter()` to your repositories block:
+
+    repositories {
+        jcenter()
+    }
+
+If you use Maven, rethink your life choices (Maven is fine to keep using, but for new projects it's worth [learning Gradle](https://bitbucket.org/marshallpierce/java-quickstart)):
+
+    <repositories>
+        <repository>
+          <id>jcenter</id>
+          <url>https://jcenter.bintray.com/</url>
+        </repository>
+    </repositories>
+
+Then just add the dependency.
+
+In Gradle:
+
+    compile 'net.dinomite:forgetsy:0.3.3'
+
+In Maven (ick):
+
+    <dependency>
+      <groupId>net.dinomite</groupId>
+      <artifactId>forgetsy</artifactId>
+      <version>0.3.3</version>
+      <type>pom</type>
+    </dependency>
+
+## Delta creation
+
+[`Delta`](https://github.com/dinomite/forgetsy-jvm/blob/master/src/main/kotlin/net/dinomite/forgetsy/Delta.kt) will
+attempt to use existing data in Redis if you don't provide a lifetime for and the underlying Sorted Sets exist,
+throwing `IllegalStateException` if the data isn't found.  If you want to re-use existing data upon restart of your app,
+but create a new one if necessary, do something like this:
+
+```kotlin
+var delta = reifyOrMakeDelta(jedisPool)
+
+fun reifyOrMakeDelta(jedisPool: JedisPool) {
+    try {
+        return Delta(jedisPool, "namesy")
+    } catch (e: IllegalStateException) {
+        return Delta(jedisPool, "namesy", Duration.ofDays(10))
+    }
+}
+```
+
+## Incrementing
+
+The most common interaction with your delta will be incrementing bins:
+
+```kotlin
+delta.increment("$binName")
+```
+
+## Fetching
+
+Use the `fetch()` method to get the stats about what is trending:
+
+```kotlin
+delta.fetch()
+```
+
+Deltas are likely to contain more bins than you want to see.  Pass a count to fetch to get the top n buckets:
+
+```kotlin
+delta.fetch(25)
+```
+
 # Ruby
 
 I wrote this as a straight port of [Forgetsy](https://github.com/cavvia/forgetsy), mirroring the API very closely and even much of the internals.  It should interop well (i.e. you should be ok using this and Forgetsy pointed at the same Redis) but I haven't tested that yet.
