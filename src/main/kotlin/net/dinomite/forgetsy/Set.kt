@@ -96,15 +96,17 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
 
         logger.debug("Decaying $name. t0=$t0, t1=$t1, deltaT=$deltaT, rate=$rate")
 
-        jedisPool.resource.pipelined().use { p ->
-            set.forEach {
-                val newValue = it.score * Math.exp(-deltaT * rate)
-                p.zadd(name, newValue, it.element)
-            }
+        jedisPool.resource.use {
+            it.pipelined().use { p ->
+                set.forEach {
+                    val newValue = it.score * Math.exp(-deltaT * rate)
+                    p.zadd(name, newValue, it.element)
+                }
 
-            logger.debug("Updating $name decay date to $date as part of decay")
-            p.zadd(name, date.toTimestamp(), LAST_DECAYED_KEY)
-            p.sync()
+                logger.debug("Updating $name decay date to $date as part of decay")
+                p.zadd(name, date.toTimestamp(), LAST_DECAYED_KEY)
+                p.sync()
+            }
         }
     }
 

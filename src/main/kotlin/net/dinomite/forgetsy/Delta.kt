@@ -58,7 +58,6 @@ open class Delta(val jedisPool: JedisPool, name: String, lifetime: Duration? = n
     fun fetch(limit: Int? = null, decay: Boolean = true, scrub: Boolean = true): Map<String, Double> {
         val counts = primarySet.fetch(decay = decay, scrub = scrub)
         val norm = secondarySet.fetch(decay = decay, scrub = scrub)
-        logger.debug("counts: $counts; norm: $norm")
 
         val result: List<Pair<String, Double>> = counts.map {
             val normV = norm[it.key]
@@ -73,7 +72,6 @@ open class Delta(val jedisPool: JedisPool, name: String, lifetime: Duration? = n
     fun fetch(bin: String, limit: Int? = null, decay: Boolean = true, scrub: Boolean = true): Map<String, Double?> {
         val counts = primarySet.fetch(decay = decay, scrub = scrub)
         val norm = secondarySet.fetch(decay = decay, scrub = scrub)
-        logger.debug("counts: $counts; norm: $norm")
 
         val result: List<Pair<String, Double?>>
         val normV = norm[bin]
