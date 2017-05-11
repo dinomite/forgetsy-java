@@ -1,5 +1,6 @@
 package net.dinomite.forgetsy
 
+import org.slf4j.LoggerFactory
 import redis.clients.jedis.JedisPool
 import java.time.Duration
 import java.time.Instant
@@ -16,20 +17,22 @@ import java.time.Instant
  * @param [start]   Optional, an instant to start replaying from
  */
 open class Delta(val jedisPool: JedisPool, name: String, lifetime: Duration? = null, start: Instant? = null) {
+    private val logger = LoggerFactory.getLogger(this.javaClass.name)
+
     companion object {
         val NORMAL_TIME_MULTIPLIER = 2
     }
 
     val primarySet: Set
     val secondarySet: Set
-    val sets: List<Set>
 
     init {
         val primaryKey: String = name
         val secondaryKey: String = "${name}_2t"
 
         if (lifetime == null) {
-            // Reify existing Delta
+            logger.info("Reifying Delta $name")
+
             try {
                 primarySet = Set(jedisPool, primaryKey)
                 secondarySet = Set(jedisPool, secondaryKey)
@@ -40,21 +43,22 @@ open class Delta(val jedisPool: JedisPool, name: String, lifetime: Duration? = n
             val now = Instant.now()
             val startTime = start ?: now.minus(lifetime)
 
+            logger.info("Creating new Delta, $name, with lifetime $lifetime and start time $startTime")
             primarySet = Set(jedisPool, primaryKey, lifetime, startTime)
 
             // Secondary for retrospective observations
             val secondaryLifetime = Duration.ofSeconds(lifetime.seconds * NORMAL_TIME_MULTIPLIER)
             val secondaryStart = now.minus(Duration.ofSeconds(Duration.between(startTime, now).seconds * NORMAL_TIME_MULTIPLIER))
+
+            logger.debug("Secondary set, $secondaryKey, with lifetime $lifetime and start time $secondaryStart")
             secondarySet = Set(jedisPool, secondaryKey, secondaryLifetime, secondaryStart)
         }
-
-        sets = listOf(primarySet, secondarySet)
     }
 
     fun fetch(limit: Int? = null, decay: Boolean = true, scrub: Boolean = true): Map<String, Double> {
-        // TODO pass decay & scrub?
         val counts = primarySet.fetch(decay = decay, scrub = scrub)
         val norm = secondarySet.fetch(decay = decay, scrub = scrub)
+        logger.debug("counts: $counts; norm: $norm")
 
         val result: List<Pair<String, Double>> = counts.map {
             val normV = norm[it.key]
@@ -67,9 +71,9 @@ open class Delta(val jedisPool: JedisPool, name: String, lifetime: Duration? = n
     }
 
     fun fetch(bin: String, limit: Int? = null, decay: Boolean = true, scrub: Boolean = true): Map<String, Double?> {
-        // TODO pass decay & scrub?
         val counts = primarySet.fetch(decay = decay, scrub = scrub)
         val norm = secondarySet.fetch(decay = decay, scrub = scrub)
+        logger.debug("counts: $counts; norm: $norm")
 
         val result: List<Pair<String, Double?>>
         val normV = norm[bin]
@@ -84,14 +88,18 @@ open class Delta(val jedisPool: JedisPool, name: String, lifetime: Duration? = n
     }
 
     fun increment(bin: String, date: Instant = Instant.now()) {
-        sets.forEach {
+        logger.debug("Incrementing $bin at $date")
+        sets().forEach {
             it.increment(bin, date)
         }
     }
 
     fun incrementBy(bin: String, amount: Double, date: Instant = Instant.now()) {
-        sets.forEach {
+        logger.debug("Incrementing $bin by $amount at $date")
+        sets().forEach {
             it.incrementBy(bin, amount, date)
         }
     }
+
+    private fun sets() = listOf(primarySet, secondarySet)
 }

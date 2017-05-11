@@ -1,5 +1,6 @@
 package net.dinomite.forgetsy
 
+import org.slf4j.LoggerFactory
 import redis.clients.jedis.JedisPool
 import redis.clients.jedis.Tuple
 import java.time.Duration
@@ -17,6 +18,8 @@ import java.time.Instant
  * @param [start]       Optional, time to begin the decay from
  */
 open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? = null, start: Instant? = null) {
+    private val logger = LoggerFactory.getLogger(this.javaClass.name)
+
     companion object {
         val LAST_DECAYED_KEY = "_last_decay"
         val LIFETIME_KEY = "_t"
@@ -31,7 +34,8 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
 
     init {
         if (lifetime == null && start == null) {
-            // Attempt to lookup values
+            logger.info("Reifying Delta $name")
+
             try {
                 this.lifetime = fetchLifetime()
                 this.start = fetchLastDecayedDate()
@@ -39,12 +43,14 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
                 throw IllegalStateException("Set doesn't exist (pass lifetime to create it)")
             }
         } else if (lifetime != null) {
-            // Create a new Set
             this.lifetime = lifetime
             this.start = start ?: Instant.now()
 
-            updateDecayDate(this.start)
-            jedisPool.resource.use { it.zadd(name, this.lifetime.toDouble(), LIFETIME_KEY) }
+            logger.info("Creating new Set, $name, with lifetime $lifetime and start time $start")
+            jedisPool.resource.use {
+                it.zadd(name, this.start.toTimestamp(), LAST_DECAYED_KEY)
+                it.zadd(name, this.lifetime.toDouble(), LIFETIME_KEY)
+            }
         } else {
             throw IllegalArgumentException("Must provide lifetime for new Set")
         }
@@ -65,12 +71,14 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
     }
 
     fun increment(bin: String, date: Instant = Instant.now()) {
+        logger.debug("Incrementing $bin at $date")
         if (validIncrementDate(date)) {
             jedisPool.resource.use { it.zincrby(name, 1.toDouble(), bin) }
         }
     }
 
     fun incrementBy(bin: String, amount: Double, date: Instant = Instant.now()) {
+        logger.debug("Incrementing $bin by $amount at $date")
         if (validIncrementDate(date)) {
             jedisPool.resource.use { it.zincrby(name, amount, bin) }
         }
@@ -83,9 +91,10 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
         val t0 = fetchLastDecayedDate().toTimestamp()
         val t1 = date.toTimestamp()
         val deltaT = t1 - t0
-
-        val set = fetchRaw()
         val rate = 1 / fetchLifetime().toDouble()
+        val set = fetchRaw()
+
+        logger.debug("Decaying $name. t0=$t0, t1=$t1, deltaT=$deltaT, rate=$rate")
 
         jedisPool.resource.pipelined().use { p ->
             set.forEach {
@@ -93,7 +102,8 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
                 p.zadd(name, newValue, it.element)
             }
 
-            updateDecayDate(Instant.now())
+            logger.debug("Updating $name decay date to $date as part of decay")
+            p.zadd(name, date.toTimestamp(), LAST_DECAYED_KEY)
             p.sync()
         }
     }
@@ -102,7 +112,8 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
      * Scrub entries below threshold
      */
     internal fun scrubData() {
-        jedisPool.resource.use { it.zremrangeByScore(name, "-inf", HI_PASS_FILTER) }
+        val count = jedisPool.resource.use { it.zremrangeByScore(name, "-inf", HI_PASS_FILTER) }
+        logger.debug("Scrubbed $count values from $name")
     }
 
     internal fun fetchLastDecayedDate(): Instant {
@@ -118,10 +129,6 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
 
         val set = jedisPool.resource.use { it.zrevrangeWithScores(name, 0, bufferedLimit.toLong()) }
         return set.filter { !SPECIAL_KEYS.contains(it.element) }
-    }
-
-    internal fun updateDecayDate(date: Instant) {
-        jedisPool.resource.use { it.zadd(name, date.toTimestamp(), LAST_DECAYED_KEY) }
     }
 
     internal fun validIncrementDate(date: Instant): Boolean {

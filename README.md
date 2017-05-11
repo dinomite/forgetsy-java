@@ -33,3 +33,9 @@ I wrote this as a straight port of [Forgetsy](https://github.com/cavvia/forgetsy
 This library is written in Kotlin and I use it from Kotlin.  Kotlin has great Java interop…but this library makes use of
 named arguments which Java doesn't support and likely makes the API as viewed from Java pretty janky.  If you want to
 use this from Java provide a PR or just let me know and we can work on it together.
+
+# See also
+
+- [Forgetsy](https://github.com/cavvia/forgetsy)
+- [bitly's post on Forget Table](http://word.bitly.com/post/41284219720/forget-table)
+- [bitly's Forget Table source](https://github.com/bitly/forgettable)
