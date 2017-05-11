@@ -6,17 +6,12 @@ import java.time.Duration
 import java.time.Instant
 
 /**
- * Ruby  | Java
- * -------------
- * t     | lifetime
- * date  | start
- *
  * @param jedisPool A <a href="https://github.com/xetorthio/jedis">Jedis</a> pool instance
  * @param name      This delta's name
  * @param lifetime  Optional if Delta already exists in Redis, mean lifetime of observation
  * @param [start]   Optional, an instant to start replaying from
  */
-open class Delta(val jedisPool: JedisPool, name: String, lifetime: Duration? = null, start: Instant? = null) {
+open class Delta(jedisPool: JedisPool, name: String, lifetime: Duration? = null, start: Instant? = null) {
     private val logger = LoggerFactory.getLogger(this.javaClass.name)
 
     companion object {

@@ -1,17 +1,14 @@
 package net.dinomite.forgetsy
 
 import org.slf4j.LoggerFactory
+import redis.clients.jedis.Jedis
 import redis.clients.jedis.JedisPool
+import redis.clients.jedis.Pipeline
 import redis.clients.jedis.Tuple
 import java.time.Duration
 import java.time.Instant
 
 /**
- * Ruby  | Java
- * -------------
- * date  | start
- * t     | lifetime
- *
  * @param jedisPool     A <a href="https://github.com/xetorthio/jedis">Jedis</a> pool instance
  * @param name          This delta's name
  * @param [lifetime]    Optional if Set exists in Redis, mean lifetime of an observation
@@ -47,7 +44,7 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
             this.start = start ?: Instant.now()
 
             logger.info("Creating new Set, $name, with lifetime $lifetime and start time $start")
-            jedisPool.resource.use {
+            jedis {
                 it.zadd(name, this.start.toTimestamp(), LAST_DECAYED_KEY)
                 it.zadd(name, this.lifetime.toDouble(), LIFETIME_KEY)
             }
@@ -73,14 +70,14 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
     fun increment(bin: String, date: Instant = Instant.now()) {
         logger.debug("Incrementing $bin at $date")
         if (validIncrementDate(date)) {
-            jedisPool.resource.use { it.zincrby(name, 1.toDouble(), bin) }
+            jedis { it.zincrby(name, 1.toDouble(), bin) }
         }
     }
 
     fun incrementBy(bin: String, amount: Double, date: Instant = Instant.now()) {
         logger.debug("Incrementing $bin by $amount at $date")
         if (validIncrementDate(date)) {
-            jedisPool.resource.use { it.zincrby(name, amount, bin) }
+            jedis { it.zincrby(name, amount, bin) }
         }
     }
 
@@ -96,17 +93,14 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
 
         logger.debug("Decaying $name. t0=$t0, t1=$t1, deltaT=$deltaT, rate=$rate")
 
-        jedisPool.resource.use {
-            it.pipelined().use { p ->
-                set.forEach {
-                    val newValue = it.score * Math.exp(-deltaT * rate)
-                    p.zadd(name, newValue, it.element)
-                }
-
-                logger.debug("Updating $name decay date to $date as part of decay")
-                p.zadd(name, date.toTimestamp(), LAST_DECAYED_KEY)
-                p.sync()
+        pipeline { p ->
+            set.forEach {
+                val newValue = it.score * Math.exp(-deltaT * rate)
+                p.zadd(name, newValue, it.element)
             }
+
+            logger.debug("Updating $name decay date to $date as part of decay")
+            p.zadd(name, date.toTimestamp(), LAST_DECAYED_KEY)
         }
     }
 
@@ -114,26 +108,40 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
      * Scrub entries below threshold
      */
     internal fun scrubData() {
-        val count = jedisPool.resource.use { it.zremrangeByScore(name, "-inf", HI_PASS_FILTER) }
+        val count = jedis { it.zremrangeByScore(name, "-inf", HI_PASS_FILTER) }
         logger.debug("Scrubbed $count values from $name")
     }
 
     internal fun fetchLastDecayedDate(): Instant {
-        return Instant.ofEpochSecond(jedisPool.resource.use { it.zscore(name, LAST_DECAYED_KEY) }.toLong())
+        return Instant.ofEpochSecond(jedis { it.zscore(name, LAST_DECAYED_KEY) }.toLong())
     }
 
     internal fun fetchLifetime(): Duration {
-        return Duration.ofSeconds(jedisPool.resource.use { it.zscore(name, LIFETIME_KEY) }.toLong())
+        return Duration.ofSeconds(jedis { it.zscore(name, LIFETIME_KEY) }.toLong())
     }
 
     internal fun fetchRaw(limit: Int = -1): List<Tuple> {
         val bufferedLimit = if (limit > 0) limit + SPECIAL_KEYS.size else limit
 
-        val set = jedisPool.resource.use { it.zrevrangeWithScores(name, 0, bufferedLimit.toLong()) }
+        val set = jedis { it.zrevrangeWithScores(name, 0, bufferedLimit.toLong()) }
         return set.filter { !SPECIAL_KEYS.contains(it.element) }
     }
 
     internal fun validIncrementDate(date: Instant): Boolean {
         return date > fetchLastDecayedDate()
+    }
+
+    private fun <T> jedis(body: (jedis: Jedis) -> T): T {
+        return jedisPool.resource.use { body(it) }
+    }
+
+    private fun <T> pipeline(body: (pipeline: Pipeline) -> T): T {
+        jedisPool.resource.use {
+            it.pipelined().use {
+                val ret = body(it)
+                it.sync()
+                return ret
+            }
+        }
     }
 }
