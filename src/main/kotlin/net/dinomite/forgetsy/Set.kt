@@ -131,11 +131,11 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
         return date > fetchLastDecayedDate()
     }
 
-    private fun <T> jedis(body: (jedis: Jedis) -> T): T {
+    private inline fun <T> jedis(body: (jedis: Jedis) -> T): T {
         return jedisPool.resource.use { body(it) }
     }
 
-    private fun <T> pipeline(body: (pipeline: Pipeline) -> T): T {
+    private inline fun <T> pipeline(body: (pipeline: Pipeline) -> T): T {
         jedisPool.resource.use {
             it.pipelined().use {
                 val ret = body(it)
