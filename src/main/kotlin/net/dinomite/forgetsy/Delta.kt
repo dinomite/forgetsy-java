@@ -80,17 +80,10 @@ open class Delta(jedisPool: JedisPool, name: String, lifetime: Duration? = null,
         return result.subList(0, trim).toMap()
     }
 
-    fun increment(bin: String, date: Instant = Instant.now()) {
-        logger.debug("Incrementing $bin at $date")
-        sets().forEach {
-            it.increment(bin, date)
-        }
-    }
-
-    fun incrementBy(bin: String, amount: Double, date: Instant = Instant.now()) {
+    fun increment(bin: String, amount: Double = 1.0, date: Instant = Instant.now()) {
         logger.debug("Incrementing $bin by $amount at $date")
         sets().forEach {
-            it.incrementBy(bin, amount, date)
+            it.increment(bin, amount, date)
         }
     }
 

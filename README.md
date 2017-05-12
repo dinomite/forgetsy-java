@@ -67,7 +67,7 @@ but create a new one if necessary, do something like this:
 ```kotlin
 var delta = reifyOrMakeDelta(jedisPool)
 
-fun reifyOrMakeDelta(jedisPool: JedisPool) {
+fun reifyOrMakeDelta(jedisPool: JedisPool): Delta {
     try {
         return Delta(jedisPool, "namesy")
     } catch (e: IllegalStateException) {

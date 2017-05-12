@@ -54,7 +54,7 @@ class DeltaTest {
     }
 
     @Test
-    fun create_failsForNonexistant() {
+    fun create_failsForNonExistent() {
         try {
             Delta(jedisPool, "does-not-exist")
             fail()

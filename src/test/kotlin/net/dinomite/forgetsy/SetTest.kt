@@ -76,13 +76,13 @@ class SetTest {
     @Test
     fun increment() {
         set.increment(binName)
-        jedisPool.resource.use { assertEquals("Increments counter correctly", 1.0, it.zscore(name, binName), .1) }
+        jedisPool.resource.use { assertEquals("Increments counter correctly", 1.0, it.zscore(name, binName), .01) }
     }
 
     @Test
     fun incrementBatch() {
-        set.incrementBy(binName, 5.0)
-        jedisPool.resource.use { assertEquals("Increments in batches", 5.0, it.zscore(name, binName), .1) }
+        set.increment(binName, 5.0)
+        jedisPool.resource.use { assertEquals("Increments in batches", 5.0, it.zscore(name, binName), .01) }
     }
 
     @Test
@@ -90,22 +90,22 @@ class SetTest {
         set.increment(binName, date = Instant.now().minus(lifetime.plusDays(5)))
         jedisPool.resource.use {
             assertNull("Ignores date older than last decay date", it.zscore(name, binName))
-            assertNull("Fetch is null", set.fetch(binName).values.first())
+            assertNull("Fetch is null", set.fetch(binName))
         }
     }
 
 
     @Test
     fun fetch_byBinName() {
-        set.incrementBy(binName, 2.0)
-        assertEquals(mapOf(binName to 2.0), set.fetch(binName, decay = false))
+        set.increment(binName, 2.0)
+        assertEquals(2.0, set.fetch(binName, decay = false)!!, .01)
     }
 
     @Test
     fun fetch_TopN() {
         val otherBin = "bar_bin"
-        set.incrementBy(binName, 2.0)
-        set.incrementBy(otherBin, 1.0)
+        set.increment(binName, 2.0)
+        set.increment(otherBin, 1.0)
 
         assertEquals(mapOf(binName to 2.0, otherBin to 1.0), set.fetch(2, false))
     }
@@ -113,8 +113,8 @@ class SetTest {
     @Test
     fun fetch_All() {
         val otherBin = "bar_bin"
-        set.incrementBy(binName, 2.0)
-        set.incrementBy(otherBin, 1.0)
+        set.increment(binName, 2.0)
+        set.increment(otherBin, 1.0)
 
         assertEquals(mapOf(binName to 2.0, otherBin to 1.0), set.fetch(decay = false))
     }
@@ -134,15 +134,15 @@ class SetTest {
         val barValue = 10.0
 
         val set = Set(jedisPool, "decay_test", lifetime, start)
-        set.incrementBy(fooName, fooValue)
-        set.incrementBy(barName, barValue)
+        set.increment(fooName, fooValue)
+        set.increment(barName, barValue)
 
         val decayedFoo = fooValue * Math.exp(- rate * delta)
         val decayedBar = barValue * Math.exp(- rate * delta)
 
         set.decayData(now)
-        assertEquals(decayedFoo, set.fetch(fooName).values.first(), .1)
-        assertEquals(decayedBar, set.fetch(barName).values.first(), .1)
+        assertEquals(decayedFoo, set.fetch(fooName)!!, .01)
+        assertEquals(decayedBar, set.fetch(barName)!!, .01)
     }
 
     @Test

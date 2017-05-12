@@ -60,21 +60,14 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
         return fetchRaw(num).associateBy({ it.element }, { it.score })
     }
 
-    fun fetch(bin: String, decay: Boolean = true, scrub: Boolean = true): Map<String, Double> {
+    fun fetch(bin: String, decay: Boolean = true, scrub: Boolean = true): Double? {
         if (decay) decayData()
         if (scrub) scrubData()
 
-        return mapOf(bin to jedisPool.resource.use { it.zscore(name, bin) })
+        return jedis { it.zscore(name, bin) }
     }
 
-    fun increment(bin: String, date: Instant = Instant.now()) {
-        logger.debug("Incrementing $bin at $date")
-        if (validIncrementDate(date)) {
-            jedis { it.zincrby(name, 1.toDouble(), bin) }
-        }
-    }
-
-    fun incrementBy(bin: String, amount: Double, date: Instant = Instant.now()) {
+    fun increment(bin: String, amount: Double = 1.0, date: Instant = Instant.now()) {
         logger.debug("Incrementing $bin by $amount at $date")
         if (validIncrementDate(date)) {
             jedis { it.zincrby(name, amount, bin) }
@@ -120,11 +113,14 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
         return Duration.ofSeconds(jedis { it.zscore(name, LIFETIME_KEY) }.toLong())
     }
 
+    /**
+     * Fetch without special keys
+     */
     internal fun fetchRaw(limit: Int = -1): List<Tuple> {
         val bufferedLimit = if (limit > 0) limit + SPECIAL_KEYS.size else limit
 
-        val set = jedis { it.zrevrangeWithScores(name, 0, bufferedLimit.toLong()) }
-        return set.filter { !SPECIAL_KEYS.contains(it.element) }
+        return jedis { it.zrevrangeWithScores(name, 0, bufferedLimit.toLong()) }
+                .filter { !SPECIAL_KEYS.contains(it.element) }
     }
 
     internal fun validIncrementDate(date: Instant): Boolean {
