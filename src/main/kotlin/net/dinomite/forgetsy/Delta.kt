@@ -50,6 +50,13 @@ open class Delta(jedisPool: JedisPool, name: String, lifetime: Duration? = null,
         }
     }
 
+    /**
+     * Fetch the top bins
+     *
+     * @param   limit   The number of bins to fetch
+     * @param   [decay] Optional, whether to decay before fetch
+     * @param   [scrub] Optional, whether to scrube before fetch
+     */
     fun fetch(limit: Int? = null, decay: Boolean = true, scrub: Boolean = true): Map<String, Double> {
         val counts = primarySet.fetch(decay = decay, scrub = scrub)
         val norm = secondarySet.fetch(decay = decay, scrub = scrub)
@@ -64,27 +71,28 @@ open class Delta(jedisPool: JedisPool, name: String, lifetime: Duration? = null,
         return result.subList(0, trim).toMap()
     }
 
-    fun fetch(bin: String, limit: Int? = null, decay: Boolean = true, scrub: Boolean = true): Map<String, Double?> {
+    /**
+     * Fetch an individual bin
+     *
+     * @param   bin     The bin to fetch
+     * @param   [decay] Optional, whether to decay before fetch
+     * @param   [scrub] Optional, whether to scrube before fetch
+     */
+    fun fetch(bin: String, decay: Boolean = true, scrub: Boolean = true): Map<String, Double?> {
         val counts = primarySet.fetch(decay = decay, scrub = scrub)
         val norm = secondarySet.fetch(decay = decay, scrub = scrub)
 
-        val result: List<Pair<String, Double?>>
         val normV = norm[bin]
         if (normV == null) {
-            result = listOf(bin to null)
+            return mapOf(bin to null)
         } else {
-            result = listOf(bin to (counts[bin]!! / normV))
+            return mapOf(bin to (counts[bin]!! / normV))
         }
-
-        val trim = if (limit != null && limit <= result.size) limit else result.size
-        return result.subList(0, trim).toMap()
     }
 
     fun increment(bin: String, amount: Double = 1.0, date: Instant = Instant.now()) {
         logger.debug("Incrementing $bin by $amount at $date")
-        sets().forEach {
-            it.increment(bin, amount, date)
-        }
+        sets().forEach { it.increment(bin, amount, date) }
     }
 
     private fun sets() = listOf(primarySet, secondarySet)
