@@ -20,7 +20,6 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
     companion object {
         val LAST_DECAYED_KEY = "_last_decay"
         val LIFETIME_KEY = "_t"
-        val SPECIAL_KEYS = listOf(LAST_DECAYED_KEY, LIFETIME_KEY)
 
         // Scrub keys scoring lower than this
         val HI_PASS_FILTER = "0.0001"
@@ -28,6 +27,8 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
 
     val lifetime: Duration
     val start: Instant
+    val lastDecayedKey = "$name$LAST_DECAYED_KEY"
+    val lifetimeKey = "$name$LIFETIME_KEY"
 
     init {
         if (lifetime == null && start == null) {
@@ -36,17 +37,21 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
             try {
                 this.lifetime = fetchLifetime()
                 this.start = fetchLastDecayedDate()
-            } catch (e: NullPointerException) {
-                throw IllegalStateException("Set doesn't exist (pass lifetime to create it)")
+            } catch (e: NumberFormatException) {
+                if (e.message == "null") {
+                    throw IllegalStateException("Set doesn't exist (pass lifetime to create it)")
+                } else {
+                    throw e
+                }
             }
         } else if (lifetime != null) {
             this.lifetime = lifetime
             this.start = start ?: Instant.now()
 
             logger.info("Creating new Set, $name, with lifetime $lifetime and start time $start")
-            jedis {
-                it.zadd(name, this.start.toTimestamp(), LAST_DECAYED_KEY)
-                it.zadd(name, this.lifetime.toDouble(), LIFETIME_KEY)
+            pipeline {
+                it.set(lastDecayedKey, this.start.epochSecond.toString())
+                it.set(lifetimeKey, this.lifetime.seconds.toString())
             }
         } else {
             throw IllegalArgumentException("Must provide lifetime for new Set")
@@ -93,7 +98,7 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
             }
 
             logger.debug("Updating $name decay date to $date as part of decay")
-            p.zadd(name, date.toTimestamp(), LAST_DECAYED_KEY)
+            p.set(lastDecayedKey, date.epochSecond.toString())
         }
     }
 
@@ -106,21 +111,15 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
     }
 
     internal fun fetchLastDecayedDate(): Instant {
-        return Instant.ofEpochSecond(jedis { it.zscore(name, LAST_DECAYED_KEY) }.toLong())
+        return Instant.ofEpochSecond(jedis { it.get(lastDecayedKey) }.toLong())
     }
 
     internal fun fetchLifetime(): Duration {
-        return Duration.ofSeconds(jedis { it.zscore(name, LIFETIME_KEY) }.toLong())
+        return Duration.ofSeconds(jedis { it.get(lifetimeKey) }.toLong())
     }
 
-    /**
-     * Fetch without special keys
-     */
-    internal fun fetchRaw(limit: Int = -1): List<Tuple> {
-        val bufferedLimit = if (limit > 0) limit + SPECIAL_KEYS.size else limit
-
-        return jedis { it.zrevrangeWithScores(name, 0, bufferedLimit.toLong()) }
-                .filter { !SPECIAL_KEYS.contains(it.element) }
+    internal fun fetchRaw(limit: Int = -1): MutableSet<Tuple> {
+        return jedis { it.zrevrangeWithScores(name, 0, limit.toLong()) }
     }
 
     internal fun validIncrementDate(date: Instant): Boolean {

@@ -36,11 +36,8 @@ class SetTest {
 
     @Test
     fun create() {
-        jedisPool.resource.use {
-            assertEquals("Creates Redis set with correct name & metadata", 2, it.zcount(name, "-inf", "+inf"))
-        }
-
         assertEquals("Stores mean lifetime in special key when created", lifetime, set.fetchLifetime())
+        assertWithin(Instant.now(), set.fetchLastDecayedDate())
     }
 
     @Test

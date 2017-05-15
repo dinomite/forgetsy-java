@@ -36,21 +36,17 @@ class DeltaTest {
     @Test
     fun create() {
         jedisPool.resource.use {
-            assertEquals("Creates primary Set", 1, it.keys(delta.primarySet.name).size)
-            assertEquals("Creates secondary Set", 1, it.keys(delta.secondarySet.name).size)
-            assertEquals(2, it.dbSize())
+            assertNotNull("Creates primary Set", it.get(delta.primarySet.lifetimeKey))
+            assertNotNull("Creates secondary Set", it.get(delta.secondarySet.lifetimeKey))
+            assertEquals(4, it.dbSize())
         }
     }
 
     @Test
     fun create_reifiesExisting() {
-        val sameDelta = Delta(jedisPool, name)
+        Delta(jedisPool, name)
 
-        jedisPool.resource.use {
-            assertEquals("Creates primary Set", 1, it.keys(sameDelta.primarySet.name).size)
-            assertEquals("Creates secondary Set", 1, it.keys(sameDelta.secondarySet.name).size)
-            assertEquals(2, it.dbSize())
-        }
+        jedisPool.resource.use { assertEquals(4, it.dbSize()) }
     }
 
     @Test
