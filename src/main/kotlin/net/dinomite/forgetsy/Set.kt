@@ -22,7 +22,7 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
         val LIFETIME_KEY = "_t"
 
         // Scrub keys scoring lower than this
-        val HI_PASS_FILTER = "0.0001"
+        val HI_PASS_FILTER = 0.0001
     }
 
     val lifetime: Duration
@@ -87,13 +87,14 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
         val t1 = date.toTimestamp()
         val deltaT = t1 - t0
         val rate = 1 / fetchLifetime().toDouble()
+        val decayMultiplier = Math.exp(-deltaT * rate)
         val set = fetchRaw()
 
         logger.debug("Decaying $name. t0=$t0, t1=$t1, deltaT=$deltaT, rate=$rate")
 
         pipeline { p ->
             set.forEach {
-                val newValue = it.score * Math.exp(-deltaT * rate)
+                val newValue = it.score * decayMultiplier
                 p.zadd(name, newValue, it.element)
             }
 
@@ -106,7 +107,7 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
      * Scrub entries below threshold
      */
     internal fun scrubData() {
-        val count = jedis { it.zremrangeByScore(name, "-inf", HI_PASS_FILTER) }
+        val count = jedis { it.zremrangeByScore(name, "-inf", "$HI_PASS_FILTER") }
         logger.debug("Scrubbed $count values from $name")
     }
 
