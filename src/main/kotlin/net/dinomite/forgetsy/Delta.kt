@@ -58,8 +58,11 @@ open class Delta(jedisPool: JedisPool, name: String, lifetime: Duration? = null,
      * @param   [scrub] Optional, whether to scrube before fetch
      */
     fun fetch(limit: Int? = null, decay: Boolean = true, scrub: Boolean = true): Map<String, Double> {
-        val counts = primarySet.fetch(decay = decay, scrub = scrub)
-        val norm = secondarySet.fetch(decay = decay, scrub = scrub)
+        if (decay) decay()
+        if (scrub) scrub()
+
+        val counts = primarySet.fetch()
+        val norm = secondarySet.fetch()
 
         val result: List<Pair<String, Double>> = counts.map {
             val normV = norm[it.key]
@@ -79,8 +82,11 @@ open class Delta(jedisPool: JedisPool, name: String, lifetime: Duration? = null,
      * @param   [scrub] Optional, whether to scrube before fetch
      */
     fun fetch(bin: String, decay: Boolean = true, scrub: Boolean = true): Map<String, Double?> {
-        val counts = primarySet.fetch(decay = decay, scrub = scrub)
-        val norm = secondarySet.fetch(decay = decay, scrub = scrub)
+        if (decay) decay()
+        if (scrub) scrub()
+
+        val counts = primarySet.fetch()
+        val norm = secondarySet.fetch()
 
         val normV = norm[bin]
         if (normV == null) {
@@ -90,9 +96,28 @@ open class Delta(jedisPool: JedisPool, name: String, lifetime: Duration? = null,
         }
     }
 
-    fun increment(bin: String, amount: Double = 1.0, date: Instant = Instant.now()) {
-        logger.debug("Incrementing $bin by $amount at $date")
-        sets().forEach { it.increment(bin, amount, date) }
+    /**
+     * Decay the data.
+     */
+    fun decay() {
+        primarySet.decayData()
+        secondarySet.decayData()
+    }
+
+    /**
+     * Scrub old entries
+     */
+    fun scrub() {
+        primarySet.scrubData()
+        secondarySet.scrubData()
+    }
+
+    /**
+     * Increment a bin
+     */
+    fun increment(bin: String, amount: Double = 1.0) {
+        logger.debug("Incrementing $bin by $amount")
+        sets().forEach { it.increment(bin, amount) }
     }
 
     private fun sets() = listOf(primarySet, secondarySet)

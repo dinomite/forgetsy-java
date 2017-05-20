@@ -1,6 +1,7 @@
 package net.dinomite.forgetsy
 
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import redis.clients.jedis.JedisPool
@@ -82,15 +83,6 @@ class SetTest {
         jedisPool.resource.use { assertEquals("Increments in batches", 5.0, it.zscore(name, binName), .01) }
     }
 
-    @Test
-    fun increment_ignoresBadDate() {
-        set.increment(binName, date = Instant.now().minus(lifetime.plusDays(5)))
-        jedisPool.resource.use {
-            assertNull("Ignores date older than last decay date", it.zscore(name, binName))
-            assertNull("Fetch is null", set.fetch(binName))
-        }
-    }
-
 
     @Test
     fun fetch_byBinName() {
@@ -137,7 +129,7 @@ class SetTest {
         val decayedFoo = fooValue * Math.exp(- rate * delta)
         val decayedBar = barValue * Math.exp(- rate * delta)
 
-        set.decayData(now)
+        set.decayData()
         assertEquals(decayedFoo, set.fetch(fooName)!!, .01)
         assertEquals(decayedBar, set.fetch(barName)!!, .01)
     }

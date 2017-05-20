@@ -72,19 +72,18 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
         return jedis { it.zscore(name, bin) }
     }
 
-    fun increment(bin: String, amount: Double = 1.0, date: Instant = Instant.now()) {
-        logger.debug("Incrementing $bin by $amount at $date")
-        if (validIncrementDate(date)) {
-            jedis { it.zincrby(name, amount, bin) }
-        }
+    fun increment(bin: String, amount: Double = 1.0) {
+        logger.debug("Incrementing $bin by $amount")
+        jedis { it.zincrby(name, amount, bin) }
     }
 
     /**
      * Apply exponential decay and update last decay time
      */
-    internal fun decayData(date: Instant = Instant.now()) {
+    internal fun decayData() {
+        val now = Instant.now()
         val t0 = fetchLastDecayedDate().toTimestamp()
-        val t1 = date.toTimestamp()
+        val t1 = now.toTimestamp()
         val deltaT = t1 - t0
         val rate = 1 / fetchLifetime().toDouble()
         val decayMultiplier = Math.exp(-deltaT * rate)
@@ -98,8 +97,8 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
                 p.zadd(name, newValue, it.element)
             }
 
-            logger.debug("Updating $name decay date to $date as part of decay")
-            p.set(lastDecayedKey, date.epochSecond.toString())
+            logger.debug("Updating $name decay date to $now as part of decay")
+            p.set(lastDecayedKey, now.epochSecond.toString())
         }
     }
 
@@ -121,10 +120,6 @@ open class Set(val jedisPool: JedisPool, val name: String, lifetime: Duration? =
 
     internal fun fetchRaw(limit: Int = -1): MutableSet<Tuple> {
         return jedis { it.zrevrangeWithScores(name, 0, limit.toLong()) }
-    }
-
-    internal fun validIncrementDate(date: Instant): Boolean {
-        return date > fetchLastDecayedDate()
     }
 
     private inline fun <T> jedis(body: (jedis: Jedis) -> T): T {

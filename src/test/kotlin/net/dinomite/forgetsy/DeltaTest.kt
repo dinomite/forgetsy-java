@@ -59,25 +59,6 @@ class DeltaTest {
         }
     }
 
-    @Test
-    fun create_retrospective() {
-        val retrospective = Delta(jedisPool, name, 7.days())
-
-        val secondaryDecayDate = retrospective.secondarySet.fetchLastDecayedDate()
-        val primaryDecayDate = retrospective.primarySet.fetchLastDecayedDate()
-        assertTrue("Secondary start is before primary", secondaryDecayDate < primaryDecayDate)
-
-        retrospective.increment("UserFoo", date = 14.daysAgo())
-        retrospective.increment("UserBar", date = 10.daysAgo())
-        retrospective.increment("UserBar", date = 7.daysAgo())
-        retrospective.increment("UserFoo", date = 1.daysAgo())
-        retrospective.increment("UserFoo")
-
-        val values = retrospective.fetch()
-        assertEquals(0.67, values["UserFoo"]!!, 0.01)
-        assertEquals(0.50, values["UserBar"]!!, 0.01)
-    }
-
 
     @Test
     fun fetch_normalizedCountsForAllScores() {
