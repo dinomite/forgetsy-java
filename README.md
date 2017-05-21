@@ -1,7 +1,6 @@
 # forgetsy-jvm
 
-A JVM port of [Forgetsy](https://github.com/cavvia/forgetsy) in Kotlin.  Heavy lifting (and persistence, if you care
-about that) is done by Redis, so you'll need one of those.
+A JVM port of [Forgetsy](https://github.com/cavvia/forgetsy) in Kotlin.  Data is stored in Redis, so you'll need one of those.
 
 # Synopsis
 
@@ -97,10 +96,6 @@ Deltas are likely to contain more bins than you want to see.  Pass a count to fe
 ```kotlin
 delta.fetch(25)
 ```
-
-# Ruby
-
-I wrote this as a straight port of [Forgetsy](https://github.com/cavvia/forgetsy), mirroring the API very closely and even much of the internals.  It should interop well (i.e. you should be ok using this and Forgetsy pointed at the same Redis) but I haven't tested that yet.
 
 # Kotlin (and Java)
 
